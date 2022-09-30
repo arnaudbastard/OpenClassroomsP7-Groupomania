@@ -4,13 +4,11 @@ const router = express.Router();
 
 const userCtrl = require("../controllers/user.controller");
 
-const multer = require("../middlewares/GuardMulterUser");
-const auth = require("../middlewares/GuardAuth");
+const GuardAuth = require("../middleware/GuardAuth");
 
 /* Routage User */
 router.post("/signup", userCtrl.signup);
 router.post("/login", userCtrl.login);
-router.post("/modify/:userId", auth, multer, userCtrl.modifyUser);
-
+router.get("/", GuardAuth, userCtrl.getAllUser);
 
 module.exports = router;

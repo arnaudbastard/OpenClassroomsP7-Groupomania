@@ -5,40 +5,70 @@ const jwt = require("jsonwebtoken");
 const dotenv = require("dotenv").config({ encoding: "latin1" });
 const fs = require("fs");
 
-
+/* Controleur recupération all users */
+exports.getAllUser = (req, res, next) => {
+    User.find()
+        .then((users) => {
+            res.status(200).json(users);
+        })
+        .catch((error) => {
+            res.status(400).json({
+                error: error,
+            });
+        });
+};
 
 /* Controleur inscription */
 exports.signup = async (req, res, next) => {
-
-    const { nom, prenom, email, password } = req.body;
-
     User.findOne({ email: req.body.email }, async function (err, emailExists) {
         if (!emailExists) {
-            console.log("je suis la")
+            const salt = await bcrypt.genSalt();
 
-            const hashPassword = await bcrypt.hash(password, process.env.BCRYPT_SALT_ROUND);
-            try {
-                console.log("ici")
-                await User.create({
-                    nom: nom,
-                    prenom: prenom,
-                    imageUrl: "./images/userImg/default.png",
-                    presentation: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus eget mattis nibh. Etiam vel aliquet turpis. Ut dictum eros id rhoncus vehicula. Sed porta quam lectus, eget gravida nisl condimentum non. Phasellus eros tortor, suscipit at consectetur a, iaculis nec dui.",
-                    email: email,
-                    password: hashPassword
-                });
-                res.json({ msg: "Inscription réussie" });
-            } catch (error) {
-                console.log(error);
-            }
+            bcrypt.hash(req.body.password, salt, async (err, hash) => {
+                try {
+                    await User.create({
+                        nom: req.body.nom,
+                        prenom: req.body.prenom,
+                        imageUrl: req.body.imageUrl,
+                        presentation: req.body.presentation,
+                        email: req.body.email,
+                        password: hash,
+                        role: req.body.role
+                    });
+                    res.json({ msg: "Inscription réussie" });
+                } catch (error) {
+                    console.log(error);
+                }
+            })
         } else {
             return res.status(400).json({ msg: "Cette adresse email existe déjà" });
         }
-    })
-}
+    });
 
+
+};
+
+/* Controleur login */
 exports.login = async (req, res, next) => {
-}
 
-/* Controleur modify */
-exports.modifyUser = async (req, res, next) => { }
+    try {
+        User.findOne({ email: req.body.email }, async function (err, user) {
+            const match = await bcrypt.compare(req.body.password, user.password);
+            if (!match) return res.status(400).json({ msg: "Mot de passe erroné" });
+            const userId = user._id;
+            const nom = user.nom;
+            const prenom = user.prenom;
+            const imageUrl = user.imageUrl;
+            const email = user.email;
+            const presentation = user.presentation;
+            const role = user.role;
+            const createdAt = user.createdAt;
+            const accessToken = jwt.sign({ userId, nom, prenom, imageUrl, email, presentation, role, createdAt }, process.env.ACCESS_TOKEN_SECRET, {
+                expiresIn: '1d'
+            });
+            res.json({ accessToken });
+        });
+    } catch (error) {
+        res.status(404).json({ msg: "L'adresse email n'existe pas" });
+    }
+}
